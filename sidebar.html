@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --ring: #2e2e2e;   /* unloaded */
+    --live: #777;      /* loaded in RAM */
+    --text: #777;
+    --accent: #5865f2; /* Discord blue */
+    --min-gap: 16px;   /* tightest spacing before the sidebar starts scrolling */
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { height: 100%; background: var(--bg); overflow: hidden; }
+  body {
+    height: 100%;
+    width: 72px;
+    overflow-y: auto;
+    font: 12px -apple-system, BlinkMacSystemFont, sans-serif;
+    user-select: none;
+  }
+  body::-webkit-scrollbar { display: none; }
+
+  /* Fills the sidebar top to bottom. Extra height is shared out evenly between
+     the dots; when the window is too short, spacing stops at --min-gap and
+     the sidebar scrolls instead. */
+  .list {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--min-gap);
+    padding: 56px 0 20px;
+  }
+
+  /* only this top strip drags the window */
+  .drag {
+    position: fixed;
+    top: 0; left: 0;
+    width: 72px;
+    height: 44px;
+    z-index: 1;
+    background: var(--bg);
+    -webkit-app-region: drag;
+  }
+
+  /* thin strip along the top of the page area, drags the window (height matches TOPBAR in main.js) */
+  .drag-top {
+    position: fixed;
+    top: 0; left: 72px; right: 0;
+    height: 12px;
+    -webkit-app-region: drag;
+  }
+
+  button {
+    -webkit-app-region: no-drag;
+    width: 28px;
+    height: 28px;
+    flex: none;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1.5px solid var(--ring);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s, opacity .15s;
+  }
+  button.loaded { border-color: var(--live); }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* drag to rearrange */
+  button.lift { opacity: .35; }
+  button.over { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+</style>
+</head>
+<body>
+<div class="drag"></div>
+<div class="drag-top"></div>
+<div class="list" id="list"></div>
+<script>
+  const list = document.getElementById('list');
+  let state = { order: [], active: 0, loaded: [] };
+  let dragId = null;
+
+  function render() {
+    list.textContent = '';
+    state.order.forEach((id, pos) => {
+      const b = document.createElement('button');
+      b.textContent = pos + 1;
+      b.title = `Account ${pos + 1}  (Cmd+${pos + 1}). Drag to rearrange.`;
+      b.draggable = true;
+      b.classList.toggle('on', id === state.active);
+      b.classList.toggle('loaded', state.loaded.includes(id));
+
+      b.onclick = () => window.api.switchTo(id);
+
+      b.addEventListener('dragstart', (e) => {
+        dragId = id;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(id));
+        requestAnimationFrame(() => b.classList.add('lift'));
+      });
+      b.addEventListener('dragend', () => {
+        dragId = null;
+        list.querySelectorAll('button').forEach((x) => x.classList.remove('lift', 'over'));
+      });
+      b.addEventListener('dragover', (e) => {
+        if (dragId === null || dragId === id) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        b.classList.add('over');
+      });
+      b.addEventListener('dragleave', () => b.classList.remove('over'));
+      b.addEventListener('drop', (e) => {
+        e.preventDefault();
+        b.classList.remove('over');
+        if (dragId === null || dragId === id) return;
+        const next = state.order.filter((x) => x !== dragId);
+        next.splice(next.indexOf(id) + (state.order.indexOf(dragId) < pos ? 1 : 0), 0, dragId);
+        state.order = next;       // show it right away
+        render();
+        window.api.reorder(next); // main saves it
+      });
+
+      list.appendChild(b);
+    });
+  }
+
+  window.api.onState((s) => { state = s; render(); });
+  window.api.getConfig().then((s) => { state = s; render(); });
+</script>
+</body>
+</html>

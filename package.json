@@ -1,0 +1,35 @@
+{
+  "name": "nine",
+  "productName": "Nine",
+  "version": "1.0.0",
+  "description": "Minimal multi-account switcher for Discord",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac dir --arm64"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
+  },
+  "build": {
+    "appId": "com.azam.nine",
+    "productName": "Nine",
+    "electronDist": "node_modules/electron/dist",
+    "files": [
+      "main.js",
+      "preload.js",
+      "sidebar.html",
+      "icon.png",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.social-networking",
+      "icon": "icon.png",
+      "target": "dir"
+    }
+  }
+}
